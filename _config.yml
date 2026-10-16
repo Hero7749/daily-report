@@ -1,0 +1,26 @@
+title: Jack 的投資日報
+description: 每日美股、台股、半導體與 AI 供應鏈市場摘要
+baseurl: "/daily-report"
+url: "https://hero7749.github.io"
+lang: zh-Hant-TW
+timezone: Asia/Taipei
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+  auto_ids: true
+
+permalink: /:year/:month/:day/:title/
+excerpt_separator: "<!--more-->"
+
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: report
+
+exclude:
+  - README.md
+  - PUBLISHING.md

@@ -1,0 +1,41 @@
+---
+layout: default
+---
+{% assign latest = site.posts.first %}
+
+{% if latest %}
+<section class="latest">
+  <div class="report-meta">
+    <span class="label">最新一篇</span>
+    <span class="chip chip-{{ latest.kind | default: '日報' }}">{{ latest.kind | default: "日報" }}</span>
+    <time>{{ latest.date | date: "%Y-%m-%d" }}</time>
+  </div>
+  <h1><a href="{{ latest.url | relative_url }}">{{ latest.title }}</a></h1>
+  <div class="latest-excerpt">{{ latest.excerpt }}</div>
+  <a class="btn" href="{{ latest.url | relative_url }}">閱讀完整報告 →</a>
+</section>
+
+<section class="archive">
+  <h2>所有報告</h2>
+  {% assign by_month = site.posts | group_by_exp: "p", "p.date | date: '%Y 年 %m 月'" %}
+  {% for month in by_month %}
+    <h3>{{ month.name }}</h3>
+    <ul class="post-list">
+      {% for p in month.items %}
+        <li>
+          <a href="{{ p.url | relative_url }}">
+            <time>{{ p.date | date: "%m/%d" }}</time>
+            <span class="chip chip-{{ p.kind | default: '日報' }}">{{ p.kind | default: "日報" }}</span>
+            <span class="t">{{ p.title }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+</section>
+{% else %}
+<section class="empty">
+  <h1>網站準備好了 🎉</h1>
+  <p>第一篇報告會在下一次排程執行後（每天早上 8 點，台灣時間）自動出現在這裡。</p>
+</section>
+{% endif %}

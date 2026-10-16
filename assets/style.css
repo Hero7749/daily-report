@@ -1,0 +1,137 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1c2430;
+  --muted: #667085;
+  --line: #e4e7ec;
+  --head: #0f172a;
+  --head-text: #f8fafc;
+  --accent: #2563eb;
+  --up: #d92d20;        /* 台股慣例：紅漲 */
+  --up-bg: #fef3f2;
+  --down: #079455;      /* 綠跌 */
+  --down-bg: #ecfdf3;
+  --th-bg: #f2f4f7;
+  --radius: 12px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --surface: #111a2b;
+    --text: #e6e9ef;
+    --muted: #98a2b3;
+    --line: #1f2a3d;
+    --head: #060b16;
+    --accent: #6ea8fe;
+    --up: #ff6b5e;
+    --up-bg: rgba(255, 107, 94, .12);
+    --down: #3ccf8e;
+    --down-bg: rgba(60, 207, 142, .12);
+    --th-bg: #172235;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+.muted { color: var(--muted); }
+.up { color: var(--up); }
+.down { color: var(--down); }
+
+/* Header / footer */
+.site-header { background: var(--head); color: var(--head-text); position: sticky; top: 0; z-index: 10; }
+.site-header .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.brand { color: var(--head-text); font-weight: 700; font-size: 1.05rem; }
+.site-header nav a { color: #cbd5e1; font-size: .9rem; }
+.site-footer { border-top: 1px solid var(--line); margin-top: 48px; padding: 24px 0 40px; font-size: .85rem; color: var(--muted); }
+.site-footer p { margin: 4px 0; }
+
+main { padding-top: 24px; }
+
+/* Chips */
+.report-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .85rem; flex-wrap: wrap; }
+.report-meta .label { font-weight: 700; color: var(--accent); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 700; background: var(--th-bg); color: var(--muted); white-space: nowrap; }
+.chip-日報 { background: #eff4ff; color: #1d4ed8; }
+.chip-週回顧 { background: #fdf2fa; color: #c11574; }
+.chip-下週預告 { background: #fffaeb; color: #b54708; }
+@media (prefers-color-scheme: dark) {
+  .chip-日報 { background: rgba(110,168,254,.15); color: #9cc2ff; }
+  .chip-週回顧 { background: rgba(238,70,188,.15); color: #f7a8dd; }
+  .chip-下週預告 { background: rgba(247,144,9,.15); color: #fdc56b; }
+}
+
+/* Home */
+.latest, .archive, .empty, .report {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 24px; margin-bottom: 20px;
+}
+.latest h1 { font-size: 1.5rem; margin: 8px 0 12px; line-height: 1.35; }
+.latest h1 a { color: var(--text); }
+.latest-excerpt { color: var(--text); }
+.btn { display: inline-block; margin-top: 12px; padding: 8px 16px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; }
+.btn:hover { text-decoration: none; opacity: .9; }
+.archive h2 { margin: 0 0 8px; font-size: 1.2rem; }
+.archive h3 { margin: 20px 0 6px; font-size: .95rem; color: var(--muted); }
+.post-list { list-style: none; margin: 0; padding: 0; }
+.post-list li a { display: flex; gap: 10px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--line); color: var(--text); }
+.post-list li:last-child a { border-bottom: 0; }
+.post-list li a:hover { background: var(--th-bg); text-decoration: none; }
+.post-list time { font-family: var(--mono); font-size: .85rem; color: var(--muted); min-width: 44px; }
+.post-list .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Report body */
+.report h1 { font-size: 1.6rem; line-height: 1.35; margin: 8px 0 16px; }
+.report-body h1 { display: none; } /* 報告內第一行標題與頁面標題重複時隱藏 */
+.report-body h2 { font-size: 1.2rem; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+.report-body h3 { font-size: 1.05rem; margin: 24px 0 8px; }
+.report-body ul { padding-left: 1.3em; }
+.report-body li { margin: 4px 0; }
+.report-body blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--th-bg); border-radius: 0 8px 8px 0; }
+.report-body hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+.report-body code { font-family: var(--mono); font-size: .9em; background: var(--th-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* 「今日三重點」區塊：第一個 h2 後面的清單 */
+.report-body .highlights { background: var(--th-bg); border-radius: 10px; padding: 12px 16px 12px 2em; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; margin: 12px 0 20px; border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--th-bg); font-weight: 700; white-space: nowrap; font-size: .85rem; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--th-bg); }
+td.num { font-family: var(--mono); white-space: nowrap; text-align: right; }
+td.pos { color: var(--up); font-weight: 700; }
+td.neg { color: var(--down); font-weight: 700; }
+td.pos.big { background: var(--up-bg); }
+td.neg.big { background: var(--down-bg); }
+
+/* Pager */
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--line); font-size: .9rem; }
+
+/* 手機：表格轉成卡片 */
+@media (max-width: 640px) {
+  .latest, .archive, .empty, .report { padding: 16px; border-radius: 10px; }
+  .report h1 { font-size: 1.3rem; }
+  .table-wrap.cards { border: 0; overflow: visible; }
+  table.cardify thead { display: none; }
+  table.cardify, table.cardify tbody, table.cardify tr, table.cardify td { display: block; width: 100%; }
+  table.cardify tr { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; padding: 6px 12px; background: var(--surface); }
+  table.cardify td { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px dashed var(--line); text-align: right; }
+  table.cardify td:last-child { border-bottom: 0; }
+  table.cardify td::before { content: attr(data-label); color: var(--muted); font-size: .8rem; text-align: left; flex-shrink: 0; max-width: 45%; }
+  table.cardify td:first-child { font-weight: 700; font-size: 1rem; border-bottom: 1px solid var(--line); }
+  table.cardify td.pos.big, table.cardify td.neg.big { background: transparent; }
+}
