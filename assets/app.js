@@ -176,7 +176,11 @@
   // 週曆表格（首欄「時段」、其餘欄為日期）→ 轉成財報週曆卡片
   body.querySelectorAll('table').forEach(function (table) {
     var th = table.querySelectorAll('thead th');
-    if (th.length >= 2 && /時段/.test(th[0].textContent) && /\d{1,2}\/\d{1,2}/.test(th[1].textContent)) {
+    var dateHeads = Array.prototype.slice.call(th, 1).filter(function (h) { return /\d{1,2}\/\d{1,2}/.test(h.textContent); }).length;
+    var sesRows = Array.prototype.filter.call(table.querySelectorAll('tbody tr'), function (tr) {
+      return tr.children[0] && /盤前|盤中|盤後|全天/.test(tr.children[0].textContent);
+    }).length;
+    if (th.length >= 2 && dateHeads >= 1 && dateHeads === th.length - 1 && (/時段/.test(th[0].textContent) || sesRows >= 2)) {
       var cal = buildCalendar(table);
       if (cal) table.parentNode.replaceChild(cal, table);
     }
