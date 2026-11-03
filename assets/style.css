@@ -135,3 +135,52 @@ td.neg.big { background: var(--down-bg); }
   table.cardify td:first-child { font-weight: 700; font-size: 1rem; border-bottom: 1px solid var(--line); }
   table.cardify td.pos.big, table.cardify td.neg.big { background: transparent; }
 }
+
+/* ── 週曆（財報行事曆卡片） ───────────────────────────── */
+.wcal {
+  display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(170px, 1fr));
+  gap: 10px; margin: 12px 0 16px; overflow-x: auto; padding-bottom: 4px;
+}
+.wc-day { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.wc-day.today { border: 2px solid #d4a72c; box-shadow: 0 0 0 3px rgba(212,167,44,.15); }
+.wc-head { display: flex; align-items: baseline; gap: 6px; padding: 8px 12px; background: var(--th-bg); border-bottom: 1px solid var(--line); }
+.wc-day.today .wc-head { background: rgba(212,167,44,.14); }
+.wc-wd { font-weight: 700; }
+.wc-date { font-family: var(--mono); color: var(--muted); font-size: .85rem; }
+.wc-today { margin-left: auto; font-size: .7rem; font-weight: 700; color: #fff; background: #d4a72c; border-radius: 999px; padding: 0 8px; }
+.wc-ses { padding: 6px 8px 4px; }
+.wc-ses + .wc-ses { border-top: 1px dashed var(--line); }
+.wc-ses h4 { margin: 2px 4px 4px; font-size: .72rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.wc-ses ul { list-style: none; margin: 0; padding: 0; }
+.report-body .wc-ses li { margin: 0; }
+.wc-item { display: flex; align-items: flex-start; gap: 8px; padding: 5px 4px; border-radius: 8px; }
+.wc-item:hover { background: var(--th-bg); }
+.wc-item.est { opacity: .78; }
+.wc-logo {
+  --h: 220; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 8px; position: relative; overflow: hidden;
+  display: grid; place-items: center; font-size: .66rem; font-weight: 700; letter-spacing: -.02em;
+  color: hsl(var(--h) 60% 35%); background: hsl(var(--h) 70% 94%); border: 1px solid var(--line);
+}
+.wc-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; padding: 3px; opacity: 0; transition: opacity .2s; }
+.wc-logo img.ok { opacity: 1; }
+.wc-logo.emoji { background: var(--th-bg); font-size: .95rem; color: inherit; }
+.wc-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.25; flex: 1; }
+.wc-row, .wc-sub { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wc-sym { font-weight: 700; font-size: .9rem; color: var(--text); font-family: var(--mono); }
+.wc-name { font-size: .76rem; color: var(--muted); white-space: nowrap; }
+.wc-title { font-size: .76rem; }
+.wc-title { color: var(--text); font-size: .82rem; white-space: normal; }
+.wc-time { font-family: var(--mono); font-size: .7rem; padding: 0 6px; border-radius: 6px; background: var(--th-bg); color: var(--text); white-space: nowrap; }
+.wc-time.next { background: rgba(37,99,235,.1); color: var(--accent); }
+.wc-est { font-size: .65rem; color: #b54708; border: 1px dashed #f0b35b; border-radius: 6px; padding: 0 5px; }
+.wc-empty { color: var(--muted); font-size: .8rem; text-align: center; margin: 16px 0; }
+@media (prefers-color-scheme: dark) {
+  .wc-logo { color: hsl(var(--h) 70% 80%); background: hsl(var(--h) 35% 20%); }
+  .wc-est { color: #fdc56b; border-color: #b54708; }
+}
+@media (min-width: 1100px) {
+  .report-body .wcal { margin-left: -80px; margin-right: -80px; }
+}
+@media (max-width: 640px) {
+  .wcal { grid-template-columns: 1fr; overflow: visible; }
+}
