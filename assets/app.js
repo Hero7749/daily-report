@@ -389,7 +389,7 @@
       var wan = Math.max(Math.abs(lo), Math.abs(hi)) >= 100000;
       if (!ticks.length) ticks = [Math.round((lo + hi) / 2)];
       var labels = ticks.map(function (t) {
-        return wan ? fmtN(t / 10000, nt.step % 10000 ? 1 : 0) + '萬' : fmtN(t, nt.step < 1 ? (nt.step < 0.1 ? 2 : 1) : 0);
+        return wan ? (t === 0 ? '0' : fmtN(t / 10000, nt.step % 10000 ? 1 : 0) + '萬') : fmtN(t, nt.step < 1 ? (nt.step < 0.1 ? 2 : 1) : 0);
       });
       var gutter = Math.ceil(Math.max.apply(null, labels.map(textW))) + 10;
       var plotW = W - gutter, band = plotW / n;
