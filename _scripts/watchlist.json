@@ -1,0 +1,25 @@
+{
+  "_說明": "自選清單（與排程指令中的清單保持一致；改清單時兩邊一起改）。代號用 Yahoo Finance 格式。",
+  "core": ["NVDA", "AMD", "TSLA", "SPCX", "ARM", "INTC"],
+  "sectors": {
+    "加密相關": ["MSTR", "CRCL"],
+    "金融科技": ["HOOD", "SOFI", "NU"],
+    "AI 晶片／IC 設計": ["NVDA", "AMD", "AVGO", "QCOM", "ARM", "INTC", "MRVL", "HIMX", "SIMO", "CBRS"],
+    "晶圓代工": ["TSM", "GFS"],
+    "EDA／IP": ["CDNS", "SNPS"],
+    "半導體設備": ["ASML", "AMAT", "LRCX", "KLAC"],
+    "記憶體／儲存": ["MU", "SNDK", "WDC", "STX", "SKHY", "DRAM", "RAM"],
+    "光通訊／光學": ["COHR", "AAOI", "FN", "CIEN", "AXTI", "GLW"],
+    "伺服器／電力設備": ["SMCI", "DELL", "VRT", "ETN"],
+    "雲端／AI 算力": ["MSFT", "AMZN", "GOOGL", "ORCL", "CRWV", "NBIS", "IREN", "WYFI"],
+    "軟體／SaaS": ["PLTR", "APP", "SNOW", "CRM", "NOW", "ADBE", "SAP", "IBM", "IGV"],
+    "資安": ["PANW", "CRWD", "ZS", "FTNT", "NET", "OKTA", "S", "NTSK", "RBRK"],
+    "終端應用": ["AAPL", "META"],
+    "電動車": ["TSLA"],
+    "太空": ["SPCX", "RKLB", "ASTS", "PL", "SPCE", "SPCH", "SSPC", "NASA", "XOVR"],
+    "創投基金": ["DXYZ", "VCX"],
+    "能源／核能": ["VST", "CEG", "NEE", "TLN", "OKLO", "SMR", "XE", "BE"],
+    "量子運算": ["IONQ", "RGTI", "QBTS", "QUBT", "INFQ"],
+    "通訊設備": ["NOK"]
+  }
+}
