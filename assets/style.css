@@ -232,3 +232,10 @@ td.neg.big { background: var(--down-bg); }
 @media (prefers-color-scheme: dark) {
   .tr-tip { box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }
 }
+
+/* 趨勢圖：日／週／月切換 */
+.tr-views { display: inline-flex; gap: 2px; padding: 3px; margin: 0 0 8px; background: var(--th-bg); border: 1px solid var(--line); border-radius: 10px; }
+.tr-view { font: inherit; font-size: .82rem; font-weight: 700; color: var(--muted); background: transparent; border: 0; border-radius: 7px; padding: 3px 14px; cursor: pointer; }
+.tr-view[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+.tr-view:disabled { opacity: .45; cursor: default; }
+.tr-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

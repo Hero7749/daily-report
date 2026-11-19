@@ -239,6 +239,46 @@
     return -1;
   }
 
+  // 週線／月線：讀籌碼歷史檔（assets/data/tw-chips.csv），只取到該篇報告當天，再按週／月彙整
+  var WINS = { d: null, w: [[4, '4 週'], [52, '52 週']], m: [[3, '3 個月'], [12, '12 個月']] };
+  var KEEP = { w: 104, m: 1000 };
+  function histUrl() {
+    var sc = document.querySelector('script[src*="assets/app.js"]');
+    return sc ? sc.src.replace(/app\.js(\?.*)?$/, 'data/tw-chips.csv') : null;
+  }
+  function reportDate() {
+    var t = document.querySelector('.report-meta time');
+    return t ? (t.getAttribute('datetime') || '').slice(0, 10) : '';
+  }
+  function aggregate(rows, names, series, key) {
+    var groups = [], idx = {};
+    rows.forEach(function (r) {
+      var d = r[0], k;
+      if (key === 'm') k = d.slice(0, 7);
+      else {
+        var dt = new Date(d + 'T00:00:00Z'), back = (dt.getUTCDay() + 6) % 7;
+        k = new Date(dt.getTime() - back * 864e5).toISOString().slice(0, 10);
+      }
+      if (!(k in idx)) { idx[k] = groups.length; groups.push({ last: d, rows: [] }); }
+      var g = groups[idx[k]];
+      g.last = d;
+      g.rows.push(r);
+    });
+    groups = groups.slice(-KEEP[key]);
+    var vals = series.map(function (s) {
+      var col = names.indexOf(s.name);
+      return groups.map(function (g) {
+        if (col < 0) return null;
+        var xs = g.rows.map(function (r) { return r[col]; }).filter(function (v) { return v != null; });
+        if (!xs.length) return null;
+        return s.bar ? xs.reduce(function (a, b) { return a + b; }, 0) : xs[xs.length - 1];
+      });
+    });
+    var axis = groups.map(function (g) { return key === 'm' ? g.last.slice(0, 7).replace('-', '/') : g.last.replace(/-/g, '/'); });
+    var tips = groups.map(function (g) { return key === 'm' ? g.last.slice(0, 7).replace('-', '/') + ' 月' : g.last.replace(/-/g, '/') + ' 當週'; });
+    return { key: key, axis: axis, tips: tips, vals: vals };
+  }
+
   function buildTrend(table) {
     var heads = Array.prototype.map.call(table.querySelectorAll('thead th'), function (th) { return th.textContent.trim(); });
     var trs = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
@@ -247,7 +287,7 @@
       var m = t.match(/(\d{1,2})[\/\-](\d{1,2})$/);
       return m ? ('0' + m[1]).slice(-2) + '/' + ('0' + m[2]).slice(-2) : t;
     });
-    var series = [];
+    var series = [], dvals = [];
     heads.forEach(function (name, c) {
       if (c === 0) return;
       var texts = trs.map(function (tr) { return tr.children[c] ? tr.children[c].textContent.trim() : ''; });
@@ -255,63 +295,92 @@
       if (vals.filter(function (v) { return v != null; }).length < 2) return;
       var um = name.match(/[（(]([^）)]+)[）)]\s*$/);
       series.push({ name: name, short: name.replace(/\s*[（(][^）)]*[）)]\s*$/, ''), unit: um ? um[1] : '',
-        vals: vals, d: decimalsOf(texts), bar: /買賣超/.test(name) });
+        d: decimalsOf(texts), bar: /買賣超/.test(name) });
+      dvals.push(vals);
     });
     if (!series.length || dates.length < 2) return null;
+    var views = { d: { key: 'd', axis: dates, tips: dates, vals: dvals } };
+    var view = views.d;
 
     var fig = el('figure', 'trend');
+    var bar = el('div', 'tr-views');
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', '週期');
+    var btns = {};
+    [['d', '日'], ['w', '週'], ['m', '月']].forEach(function (p) {
+      var bt = el('button', 'tr-view', p[1]);
+      bt.type = 'button';
+      bt.setAttribute('aria-pressed', p[0] === 'd' ? 'true' : 'false');
+      if (p[0] !== 'd') bt.disabled = true;
+      bt.addEventListener('click', function () { setView(p[0], true); });
+      btns[p[0]] = bt;
+      bar.appendChild(bt);
+    });
     var grid = el('div', 'trend-grid');
     var tip = el('div', 'tr-tip');
     tip.hidden = true;
     tip.setAttribute('aria-hidden', 'true');
+    fig.appendChild(bar);
     fig.appendChild(grid);
     fig.appendChild(tip);
     var cur = null;
 
-    var charts = series.map(function (s) {
-      var li = lastIndex(s.vals);
+    var charts = series.map(function (s, k) {
       var box = el('section', 'tr-chart');
       box.tabIndex = 0;
       var head = el('header', 'tr-head');
       head.appendChild(el('span', 'tr-name', s.name));
-      var lastEl = el('span', 'tr-last', fmtN(s.vals[li], s.d, s.bar));
-      if (s.unit) lastEl.appendChild(el('small', null, ' ' + s.unit));
+      var lastEl = el('span', 'tr-last');
       head.appendChild(lastEl);
       var deltas = el('div', 'tr-deltas');
+      head.appendChild(deltas);
+      box.appendChild(head);
+      var svg = sv('svg', { 'class': 'tr-svg', role: 'img', focusable: 'false' });
+      box.appendChild(svg);
+      grid.appendChild(box);
+      return { s: s, k: k, box: box, svg: svg, lastEl: lastEl, deltas: deltas, li: -1, geom: null, cross: null, hdot: null, bars: [] };
+    });
+
+    function fillHead(c) {
+      var s = c.s, vals = view.vals[c.k], li = lastIndex(vals), n = vals.length;
+      c.li = li;
+      c.lastEl.textContent = li >= 0 ? fmtN(vals[li], s.d, s.bar) : '—';
+      if (s.unit) c.lastEl.appendChild(el('small', null, ' ' + s.unit));
+      c.deltas.textContent = '';
       function addDelta(label, v) {
         if (v == null || isNaN(v)) return;
         var sp = el('span', 'tr-d' + (v > 0 ? ' pos' : v < 0 ? ' neg' : ''));
         sp.appendChild(el('span', 'k', label + ' '));
         sp.appendChild(document.createTextNode(fmtN(v, s.d, true)));
-        deltas.appendChild(sp);
+        c.deltas.appendChild(sp);
       }
-      var n = s.vals.length, first = s.vals.findIndex ? s.vals.findIndex(function (v) { return v != null; }) : 0;
-      var back = li - 5 >= 0 && s.vals[li - 5] != null ? li - 5 : -1;
-      if (s.bar) {
-        var sum = function (from) { var t = 0; for (var i = from; i <= li; i++) t += s.vals[i] || 0; return t; };
-        addDelta('5 日合計', li >= 4 ? sum(li - 4) : null);
-        addDelta(n + ' 日合計', sum(0));
-      } else {
-        addDelta('5 日', back >= 0 ? s.vals[li] - s.vals[back] : null);
-        addDelta(n + ' 日', first >= 0 && first < li ? s.vals[li] - s.vals[first] : null);
-      }
-      head.appendChild(deltas);
-      box.appendChild(head);
-      var svg = sv('svg', { 'class': 'tr-svg', role: 'img', focusable: 'false',
-        'aria-label': s.name + '：' + dates[0] + ' 到 ' + dates[n - 1] + '，最新 ' + fmtN(s.vals[li], s.d, s.bar) + (s.unit ? ' ' + s.unit : '') });
-      box.appendChild(svg);
-      grid.appendChild(box);
-      return { s: s, box: box, svg: svg, li: li, geom: null, cross: null, hdot: null, bars: [] };
-    });
+      var wins = WINS[view.key] || [[5, '5 日'], [n, n + ' 日']];
+      wins.forEach(function (w) {
+        if (li < 0) return;
+        if (s.bar) {
+          if (li - w[0] + 1 < 0) return;
+          var t = 0;
+          for (var i = li - w[0] + 1; i <= li; i++) t += vals[i] || 0;
+          addDelta(w[1] + '合計', t);
+        } else {
+          var j = li - w[0];
+          if (w[0] === n && view.key === 'd') j = vals.findIndex(function (v) { return v != null; });
+          if (j >= 0 && j < li && vals[j] != null) addDelta(w[1], vals[li] - vals[j]);
+        }
+      });
+      c.svg.setAttribute('aria-label', s.name + '：' + view.axis[0] + ' 到 ' + view.axis[n - 1] +
+        '，最新 ' + c.lastEl.textContent);
+    }
 
     function draw(c) {
-      var s = c.s, svg = c.svg, vals = s.vals, n = vals.length;
+      var s = c.s, svg = c.svg, vals = view.vals[c.k], n = vals.length, axis = view.axis;
       var W = Math.max(200, Math.floor(svg.getBoundingClientRect().width || c.box.clientWidth - 24));
       var top = 8, plotH = 92, H = top + plotH + 20, axisY = top + plotH;
       while (svg.firstChild) svg.removeChild(svg.firstChild);
       svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
       svg.setAttribute('height', H);
       var present = vals.filter(function (v) { return v != null; });
+      if (!present.length) { c.geom = null; return; }
       var min = Math.min.apply(null, present), max = Math.max.apply(null, present);
       if (s.bar) { min = Math.min(0, min); max = Math.max(0, max); }
       var pad = (max - min) * 0.08 || Math.abs(max) * 0.05 || 1;
@@ -320,7 +389,7 @@
       var wan = Math.max(Math.abs(lo), Math.abs(hi)) >= 100000;
       if (!ticks.length) ticks = [Math.round((lo + hi) / 2)];
       var labels = ticks.map(function (t) {
-        return wan ? fmtN(t / 10000, nt.step % 10000 ? 1 : 0) + '萬' : fmtN(t, nt.step < 1 ? (nt.step < 0.1 ? 2 : 1) : 0);
+        return wan ? (t === 0 ? '0' : fmtN(t / 10000, nt.step % 10000 ? 1 : 0) + '萬') : fmtN(t, nt.step < 1 ? (nt.step < 0.1 ? 2 : 1) : 0);
       });
       var gutter = Math.ceil(Math.max.apply(null, labels.map(textW))) + 10;
       var plotW = W - gutter, band = plotW / n;
@@ -333,12 +402,12 @@
         sv('text', { x: W - 1, y: yy + 3.5, 'text-anchor': 'end', 'class': 'tr-tick' }, svg).textContent = labels[k];
       });
       [0, Math.floor((n - 1) / 2), n - 1].forEach(function (i, k) {
-        sv('text', { x: f1(k === 0 ? 0 : k === 2 ? plotW : x(i)), y: H - 4, 'text-anchor': k === 0 ? 'start' : k === 2 ? 'end' : 'middle', 'class': 'tr-tick' }, svg).textContent = dates[i];
+        sv('text', { x: f1(k === 0 ? 0 : k === 2 ? plotW : x(i)), y: H - 4, 'text-anchor': k === 0 ? 'start' : k === 2 ? 'end' : 'middle', 'class': 'tr-tick' }, svg).textContent = axis[i];
       });
 
       c.bars = [];
       if (s.bar) {
-        var bw = Math.max(2, Math.min(24, band - 2)), y0 = y(0);
+        var bw = Math.max(1, Math.min(24, band - 2, band * 0.8)), y0 = y(0);
         vals.forEach(function (v, i) {
           if (v == null) return;
           var yv = y(v), h = Math.max(0.75, Math.abs(yv - y0));
@@ -357,7 +426,7 @@
           if (pts.length > 1) sv('path', { d: d + 'L' + f1(pts[pts.length - 1][0]) + ' ' + axisY + 'L' + f1(pts[0][0]) + ' ' + axisY + 'Z', 'class': 'tr-area' }, svg);
           sv('path', { d: d, 'class': 'tr-line' }, svg);
         });
-        sv('circle', { cx: f1(x(c.li)), cy: f1(y(vals[c.li])), r: 4, 'class': 'tr-dot' }, svg);
+        if (c.li >= 0) sv('circle', { cx: f1(x(c.li)), cy: f1(y(vals[c.li])), r: 4, 'class': 'tr-dot' }, svg);
       }
       c.cross = sv('line', { y1: top, y2: axisY, 'class': 'tr-cross', visibility: 'hidden' }, svg);
       c.hdot = s.bar ? null : sv('circle', { r: 4, 'class': 'tr-dot', visibility: 'hidden' }, svg);
@@ -365,11 +434,12 @@
     }
 
     function setHover(c, i) {
+      if (!c.geom) return;
       var on = i != null;
       c.cross.setAttribute('visibility', on ? 'visible' : 'hidden');
       if (on) { c.cross.setAttribute('x1', f1(c.geom.x(i))); c.cross.setAttribute('x2', f1(c.geom.x(i))); }
       if (c.hdot) {
-        var v = on ? c.s.vals[i] : null;
+        var v = on ? view.vals[c.k][i] : null;
         c.hdot.setAttribute('visibility', v != null ? 'visible' : 'hidden');
         if (v != null) { c.hdot.setAttribute('cx', f1(c.geom.x(i))); c.hdot.setAttribute('cy', f1(c.geom.y(v))); }
       }
@@ -377,15 +447,16 @@
     }
 
     function show(i, src) {
+      if (!src.geom) return;
       cur = i;
       charts.forEach(function (c) { setHover(c, i); });
       tip.textContent = '';
-      tip.appendChild(el('div', 'd', dates[i]));
-      series.forEach(function (s) {
-        var v = s.vals[i], row = el('div', 'r');
+      tip.appendChild(el('div', 'd', view.tips[i]));
+      series.forEach(function (s, k) {
+        var v = view.vals[k][i], row = el('div', 'r');
         row.appendChild(el('span', 'key' + (s.bar ? ' bar ' + ((v || 0) >= 0 ? 'pos' : 'neg') : '')));
         row.appendChild(el('span', 'v', v == null ? '—' : fmtN(v, s.d, s.bar) + (s.unit ? ' ' + s.unit : '')));
-        row.appendChild(el('span', 'n', s.short));
+        row.appendChild(el('span', 'n', s.short + (s.bar && view.key !== 'd' ? (view.key === 'w' ? '（週合計）' : '（月合計）') : '')));
         tip.appendChild(row);
       });
       tip.hidden = false;
@@ -406,15 +477,15 @@
     }
 
     charts.forEach(function (c) {
-      c.svg.addEventListener('pointermove', function (ev) { show(idx(c, ev), c); });
-      c.svg.addEventListener('pointerdown', function (ev) { show(idx(c, ev), c); });
+      c.svg.addEventListener('pointermove', function (ev) { if (c.geom) show(idx(c, ev), c); });
+      c.svg.addEventListener('pointerdown', function (ev) { if (c.geom) show(idx(c, ev), c); });
       c.svg.addEventListener('pointerleave', function (ev) { if (ev.pointerType === 'mouse') hide(); });
       c.box.addEventListener('focus', function () { show(cur == null ? c.li : cur, c); });
       c.box.addEventListener('blur', function () { if (!fig.contains(document.activeElement)) hide(); });
       c.box.addEventListener('keydown', function (ev) {
         var i = cur == null ? c.li : cur;
         if (ev.key === 'ArrowLeft') i = Math.max(0, i - 1);
-        else if (ev.key === 'ArrowRight') i = Math.min(dates.length - 1, i + 1);
+        else if (ev.key === 'ArrowRight') i = Math.min(view.axis.length - 1, i + 1);
         else if (ev.key === 'Escape') { hide(); return; } else return;
         ev.preventDefault();
         show(i, c);
@@ -429,15 +500,45 @@
     det.appendChild(table);
     fig.appendChild(det);
 
-    var redraw = function () { charts.forEach(draw); if (cur != null) charts.forEach(function (c) { setHover(c, cur); }); };
-    redraw();
+    function render() {
+      hide();
+      charts.forEach(function (c) { fillHead(c); draw(c); });
+    }
+    function setView(key, remember) {
+      if (!views[key]) return;
+      view = views[key];
+      Object.keys(btns).forEach(function (k) { btns[k].setAttribute('aria-pressed', k === key ? 'true' : 'false'); });
+      render();
+      if (remember) { try { localStorage.setItem('trendView', key); } catch (e) { /* 無痕模式 */ } }
+    }
+    render();
     var raf = 0, lastW = fig.clientWidth;
     window.addEventListener('resize', function () {
       if (fig.clientWidth === lastW) return;
       lastW = fig.clientWidth;
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(redraw);
+      raf = requestAnimationFrame(function () { charts.forEach(draw); if (cur != null) charts.forEach(function (c) { setHover(c, cur); }); });
     });
+
+    var url = histUrl();
+    if (url && window.fetch) {
+      fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }).then(function (txt) {
+        var lines = txt.trim().split(/\r?\n/), names = lines[0].split(','), cut = reportDate();
+        var rows = lines.slice(1).map(function (l) {
+          var cs = l.split(',');
+          return [cs[0]].concat(cs.slice(1).map(function (v) { return v === '' ? null : parseFloat(v); }));
+        }).filter(function (r) { return /^\d{4}-\d{2}-\d{2}$/.test(r[0]) && (!cut || r[0] <= cut); });
+        if (rows.length < 20) throw new Error('too short');
+        views.w = aggregate(rows, names, series, 'w');
+        views.m = aggregate(rows, names, series, 'm');
+        btns.w.disabled = btns.m.disabled = false;
+        var saved = null;
+        try { saved = localStorage.getItem('trendView'); } catch (e) { /* 無痕模式 */ }
+        if (saved === 'w' || saved === 'm') setView(saved, false);
+      }).catch(function () { btns.w.hidden = btns.m.hidden = true; });
+    } else {
+      btns.w.hidden = btns.m.hidden = true;
+    }
     return fig;
   }
 
