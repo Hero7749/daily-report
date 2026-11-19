@@ -6,7 +6,8 @@
   python3 _scripts/market_data.py --days 60   籌碼趨勢表的交易日數（預設 30）
   python3 _scripts/market_data.py --review    週六：本週「個股觀察」成績單
 
-只印到標準輸出，不會寫任何檔案到 repo。
+除了更新籌碼歷史檔 assets/data/tw-chips.csv（網頁週線／月線讀這個檔），只印到標準輸出、不寫其他檔案。
+設 MD_NO_WRITE=1（或 MD_CACHE）時連歷史檔也不寫。
 
 資料備援順序（前一個拿不到就自動換下一個，全部失敗才標「未取得」）：
   台股收盤／ETF   FinMind → 證交所 STOCK_DAY → Yahoo
@@ -53,6 +54,8 @@ CACHE_DIR = Path(os.environ["MD_CACHE"]) if os.environ.get("MD_CACHE") else None
 HERE = Path(__file__).resolve().parent
 WEEKDAY = "一二三四五六日"
 
+HIST = HERE.parent / "assets" / "data" / "tw-chips.csv"
+HIST_HEAD = ["日期", "加權指數", "外資買賣超（億）", "外資台指期淨空單（口）", "融資餘額（億）"]
 TW_ETFS = ["00929", "00919", "00946", "00962"]
 OVERVIEW = [("道瓊", "^DJI"), ("S&P 500", "^GSPC"), ("那斯達克", "^IXIC"), ("費半 SOX", "^SOX"),
             ("KOSPI", "^KS11"), ("黃金期貨", "GC=F"), ("原油期貨", "CL=F"), ("BTC", "BTC-USD"),
@@ -767,6 +770,49 @@ def run_review():
     return 0
 
 
+# ── 籌碼歷史檔（每日一列，網頁週線／月線用）──────────
+def load_history(path=None):
+    """→ {date: [加權指數, 外資買賣超(億), 外資淨空單(口), 融資餘額(億)]}"""
+    path = path or HIST
+    out = {}
+    if not path.exists():
+        return out
+    for line in path.read_text("utf-8").splitlines()[1:]:
+        cells = line.split(",")
+        if len(cells) == 5:
+            try:
+                out[dt.date.fromisoformat(cells[0])] = [num(c) if c else None for c in cells[1:]]
+            except ValueError:
+                continue
+    return out
+
+
+def merge_history(hist, taiex, inst, fut, margin):
+    """把這次抓到的數字寫進 hist（只覆蓋有值的欄位），回傳新增或變動的列數。"""
+    changed = 0
+    for d in set(taiex) | set(inst) | set(fut) | set(margin):
+        row = list(hist.get(d, [None] * 4))
+        new = [taiex.get(d), inst.get(d, {}).get("外資"), (-fut[d] if d in fut else None), margin.get(d)]
+        for i, v in enumerate(new):
+            if v is not None:
+                row[i] = round(float(v), 0 if i == 2 else 2)
+        if row != hist.get(d):
+            hist[d] = row
+            changed += 1
+    return changed
+
+
+def save_history(hist, path=None):
+    path = path or HIST
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [",".join(HIST_HEAD)]
+    for d in sorted(hist):
+        r = hist[d]
+        cells = ["" if v is None else (f"{v:.0f}" if i == 2 else f"{v:.2f}") for i, v in enumerate(r)]
+        lines.append(d.isoformat() + "," + ",".join(cells))
+    path.write_text("\n".join(lines) + "\n", "utf-8")
+
+
 # ── 日報 ─────────────────────────────────────────────────
 def load_watchlist():
     d = json.loads((HERE / "watchlist.json").read_text("utf-8"))
@@ -783,7 +829,8 @@ def run_daily(days):
     sources = {}
     fm = FinMind()
     core, sectors, sector_of = load_watchlist()
-    start = today - dt.timedelta(days=110)
+    hist = load_history()
+    start = today - dt.timedelta(days=40 if len(hist) >= 120 else 110)  # 有歷史檔就只抓近期
 
     # 1) 台股（先跑：FinMind 若要等 60 秒重試，越早發現越好）
     taiex = taiex_series(today, sources)
@@ -798,6 +845,16 @@ def run_daily(days):
     etf_div = {sid: etf_dividend(fm, sid, today) for sid in TW_ETFS}
     revenue = month_revenue(fm, today)
     news = fm.get("TaiwanStockNews", "2330", (tdates[-1] if tdates else today)) or []  # 這個資料集只能給 start_date
+
+    # 歷史檔：補進這次抓到的數字；趨勢表與燈號都改用歷史檔（FinMind 失敗時仍有完整歷史）
+    hist_changed = merge_history(hist, taiex, inst, fut, margin)
+    if not (os.environ.get("MD_NO_WRITE") or CACHE_DIR):
+        save_history(hist)
+    hd = sorted(d for d in hist if hist[d][0] is not None)
+    h_taiex = {d: hist[d][0] for d in hd}
+    h_flow = {d: hist[d][1] for d in hd if hist[d][1] is not None}
+    h_fut = {d: -hist[d][2] for d in hd if hist[d][2] is not None}
+    h_margin = {d: hist[d][3] for d in hd if hist[d][3] is not None}
 
     # 2) 美股與自選股
     symbols = list(dict.fromkeys([s for _, s in OVERVIEW] + [s for syms in sectors.values() for s in syms] + core))
@@ -920,12 +977,12 @@ def run_daily(days):
         print("【參考】週曆 💰 事件：" + "、".join(f"💰 {sid} 除息 {a} 元（{mmdd(d)}）" for sid, (d, a) in upcoming) + "\n")
 
     # 籌碼趨勢
-    tr_dates = tdates[-days:]
+    tr_dates = hd[-days:]
     rows = []
     for d in tr_dates:
-        f_ = inst.get(d, {}).get("外資")
-        rows.append([mmdd(d), fmt_num(taiex.get(d)), fmt_signed(f_) if f_ is not None else "—",
-                     fmt_num(-fut[d], 0) if d in fut else "—", fmt_num(margin[d]) if d in margin else "—"])
+        f_ = h_flow.get(d)
+        rows.append([mmdd(d), fmt_num(h_taiex.get(d)), fmt_signed(f_) if f_ is not None else "—",
+                     fmt_num(-h_fut[d], 0) if d in h_fut else "—", fmt_num(h_margin[d]) if d in h_margin else "—"])
     print(f"## 📉 籌碼趨勢（近 {len(tr_dates)} 個交易日）\n\n"
           + md_table(["📉 日期", "加權指數", "外資買賣超（億）", "外資台指期淨空單（口）", "融資餘額（億）"], rows) + "\n")
 
@@ -933,10 +990,10 @@ def run_daily(days):
     def closes(sym):
         return q(sym)["closes"] if q(sym) and q(sym).get("closes") else None
 
-    mdates = sorted(margin)[-6:]
-    tw_rows = tw_scorecard({"taiex": [taiex[d] for d in tdates], "fut_net": [fut[d] for d in sorted(fut)],
-                            "foreign": [inst[d]["外資"] for d in sorted(inst)], "margin": [margin[d] for d in mdates],
-                            "taiex5": [taiex[d] for d in mdates if d in taiex], "sox": closes("^SOX"),
+    mdates = sorted(h_margin)[-6:]
+    tw_rows = tw_scorecard({"taiex": [h_taiex[d] for d in hd], "fut_net": [h_fut[d] for d in sorted(h_fut)],
+                            "foreign": [h_flow[d] for d in sorted(h_flow)], "margin": [h_margin[d] for d in mdates],
+                            "taiex5": [h_taiex[d] for d in mdates if d in h_taiex], "sox": closes("^SOX"),
                             "night_pct": night["pct"] if night else None})
     us_rows = us_scorecard({"spx": closes("^GSPC"), "sox": closes("^SOX"), "vix": q("^VIX")["price"] if q("^VIX") else None,
                             "tnx": closes("^TNX"), "nq_pct": nq_pct})
@@ -977,6 +1034,8 @@ def run_daily(days):
     print("## 【參考】資料來源與 API 紀錄\n")
     for k in ("加權指數", "台股收盤", "三大法人", "融資餘額", "外資台指期未平倉", "台指期夜盤"):
         print(f"- {k}：{sources.get(k, '未取得')}")
+    print(f"- 籌碼歷史檔 assets/data/tw-chips.csv：共 {len(hist)} 列，本次新增或更新 {hist_changed} 列"
+          + ("（MD_NO_WRITE／快取模式，未寫入）" if (os.environ.get("MD_NO_WRITE") or CACHE_DIR) else ""))
     print(f"- 美股／指數／期貨／加密：{'、'.join(us_src) or '未取得'}；未取得：{', '.join(s for s in symbols if s not in quotes) or '無'}")
     state = f"；停用原因：{fm.last_error}" if fm.disabled else ""
     print(f"- FinMind 實際呼叫 {real} 次（成功 {ok}、失敗 {bad}）{f'、快取 {cached} 次' if cached else ''}{state}；"

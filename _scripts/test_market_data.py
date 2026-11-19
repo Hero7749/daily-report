@@ -114,6 +114,22 @@ class ReviewTests(unittest.TestCase):
         self.assertIsNone(md.judge("隨便寫", 1.0))
 
 
+class HistoryTests(unittest.TestCase):
+    def test_merge_and_roundtrip(self):
+        import tempfile
+        d1, d2 = dt.date(2026, 11, 17), dt.date(2026, 11, 18)
+        hist = {d1: [40092.11, -380.94, 97896.0, 5087.21]}
+        n = md.merge_history(hist, {d2: 40194.91}, {d2: {"外資": -765.64}}, {d2: -99438}, {})
+        self.assertEqual(n, 1)
+        self.assertEqual(hist[d2], [40194.91, -765.64, 99438.0, None])   # 期貨存「淨空單」正數；缺值留空
+        self.assertEqual(md.merge_history(hist, {d2: 40194.91}, {}, {}, {}), 0)  # 同值不算變動
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "h.csv"
+            md.save_history(hist, p)
+            self.assertEqual(p.read_text("utf-8").splitlines()[2], "2026-11-18,40194.91,-765.64,99438,")
+            self.assertEqual(md.load_history(p), hist)
+
+
 class FinMindTests(unittest.TestCase):
     def setUp(self):
         self._fetch = md.fetch_json
